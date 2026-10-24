@@ -1,0 +1,43 @@
+flowchart TD
+    A([用户输入自然语言需求]) --> E[WorkflowEngine<br/>初始化 WorkflowState round=0]
+    E --> C
+
+    subgraph CODER["① CoderAgent（复用作业1）"]
+        C[LLM 生成代码] --> C1{sandbox 执行}
+        C1 -- 失败 --> C2[traceback 回填 LLM<br/>自修复 ≤ MAX_REPAIR_ROUNDS]
+        C2 --> C1
+        C1 -- 成功/耗尽 --> CA[CodeArtifact v1]
+    end
+
+    CA --> R
+
+    subgraph REVIEW["② ReviewerAgent"]
+        R[静态审查<br/>正确性/边界/健壮性/复杂度/规范/安全] --> R1[生成边界测试用例<br/>sandbox 真实执行]
+        R1 --> RR[ReviewReport<br/>verdict / issues / tests_run]
+    end
+
+    RR --> D{verdict}
+    D -- PASS --> F1
+    D -- FAIL --> RD{round >= MAX<br/>或无可修 issue}
+    RD -- 是 --> F2
+    RD -- 否 --> FX
+
+    subgraph FIXER["③ FixerAgent"]
+        FX[按 issue 最小化修复] --> FX1[sandbox 执行]
+        FX1 --> FX2[回归：重跑 Reviewer 失败用例]
+        FX2 --> FA[CodeArtifact v(n+1)]
+    end
+
+    FA --> INC[round += 1] --> R
+
+    F1([DONE<br/>最终代码 + 审查报告 + 版本 diff])
+    F2([降级终止<br/>汇总各版本 / 报错 / 建议])
+
+    E -.-> P[(state.json<br/>trace.log)]
+    RR -.-> P
+    FA -.-> P
+
+    classDef node fill:#0E5A6E,stroke:#083D4B,color:#fff
+    classDef io fill:#F2F2F2,stroke:#999,color:#222
+    class A,F1,F2 io
+    class C,C1,C2,CA,R,R1,RR,FX,FX1,FX2,FA,D,RD,INC node

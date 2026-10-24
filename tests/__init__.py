@@ -1,0 +1,8 @@
+"""tests 包：统一把项目根目录加入 sys.path，便于任意工作目录下运行测试。"""
+
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
